@@ -9,7 +9,8 @@ from Phase 5.
 """
 
 import json
-
+import time
+from google.genai.errors import ServerError
 from google import genai
 from google.genai import types
 
@@ -20,7 +21,7 @@ from app.database.config import settings
 from app.database.inspector import schema_to_prompt_text
 from app.database.schema_models import DatabaseSchema
 
-MODEL_NAME = "gemini-2.0-flash"
+MODEL_NAME = "gemini-3-flash-preview"
 
 # JSON schema Gemini is constrained to return. Using response_schema
 # (rather than asking for JSON in plain text) means the API itself

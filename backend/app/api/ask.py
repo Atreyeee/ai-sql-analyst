@@ -18,6 +18,8 @@ from app.database.connection import get_engine
 from app.database.executor import execute_safe_sql
 from app.database.inspector import get_schema_info
 from app.database.config import settings
+from app.ai.keyword_retriever import KeywordSchemaRetriever
+from app.ai.retriever_base import SchemaRetriever
 
 router = APIRouter(tags=["ask"])
 
@@ -27,11 +29,17 @@ if settings.app_env == "test":
     _generator: SQLGenerator = MockSQLGenerator()
 else:
     _generator: SQLGenerator = LLMSQLGenerator()
+
+_retriever: SchemaRetriever = KeywordSchemaRetriever()
 @router.post("/ask", response_model=AskResponse)
 def ask_question(request: AskRequest) -> AskResponse:
-    schema = get_schema_info(get_engine())
+    full_schema = get_schema_info(get_engine())
 
-    generated = _generator.generate(request.question, schema)
+    # NEW: retrieve only the relevant subset of the schema instead of
+    # sending everything to the LLM on every request.
+    relevant_schema = _retriever.retrieve(request.question, full_schema)
+
+    generated = _generator.generate(request.question, relevant_schema)
 
     result = execute_safe_sql(generated.sql)
 

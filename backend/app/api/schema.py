@@ -6,13 +6,17 @@ can inspect the output yourself.
 """
 
 from fastapi import APIRouter
-
+from pydantic import BaseModel
+from app.ai.keyword_retriever import KeywordSchemaRetriever
 from app.database.connection import get_engine
 from app.database.inspector import get_schema_info, schema_to_prompt_text
 from app.database.schema_models import DatabaseSchema
 
 router = APIRouter(prefix="/schema", tags=["schema"])
+_debug_retriever = KeywordSchemaRetriever()
 
+class RetrievalDebugRequest(BaseModel):
+    question: str
 
 @router.get("", response_model=DatabaseSchema)
 def get_schema() -> DatabaseSchema:
@@ -27,3 +31,14 @@ def get_schema_prompt_text() -> dict:
     engine = get_engine()
     schema = get_schema_info(engine)
     return {"prompt_text": schema_to_prompt_text(schema)}
+
+@router.post("/retrieval-debug", response_model=DatabaseSchema)
+def retrieval_debug(request: RetrievalDebugRequest) -> DatabaseSchema:
+    """
+    Shows exactly which tables the retriever selected for a given
+    question, without calling the LLM. Useful for tuning MIN_SCORE_THRESHOLD
+    and MAX_TABLES, and for demonstrating retrieval behavior directly.
+    """
+    engine = get_engine()
+    full_schema = get_schema_info(engine)
+    return _debug_retriever.retrieve(request.question, full_schema)

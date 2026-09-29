@@ -33,3 +33,13 @@ class TableInfo(BaseModel):
 class DatabaseSchema(BaseModel):
     database_name: str
     tables: list[TableInfo]
+    def filter_to_tables(self, table_names: set[str]) -> "DatabaseSchema":
+        """
+        Returns a new DatabaseSchema containing only the given tables.
+        Used by schema retrieval to build the reduced schema sent to
+        the LLM, without mutating the original full schema object.
+        """
+        return DatabaseSchema(
+            database_name=self.database_name,
+            tables=[t for t in self.tables if t.name in table_names],
+        )
