@@ -19,6 +19,12 @@ class GeneratedSQL(BaseModel):
 class AskRequest(BaseModel):
     question: str
 
+class CorrectionAttempt(BaseModel):
+    """One retry attempt: what was tried and why it failed."""
+    attempt_number: int
+    failed_sql: str
+    error: str
+
 
 class AskResponse(BaseModel):
     question: str
@@ -29,3 +35,4 @@ class AskResponse(BaseModel):
     row_count: int = 0
     truncated: bool = False
     error: str | None = None
+    correction_attempts: list[CorrectionAttempt] = []  

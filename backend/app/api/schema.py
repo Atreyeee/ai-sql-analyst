@@ -11,9 +11,10 @@ from app.ai.keyword_retriever import KeywordSchemaRetriever
 from app.database.connection import get_engine
 from app.database.inspector import get_schema_info, schema_to_prompt_text
 from app.database.schema_models import DatabaseSchema
+from app.ai.embedding_retriever import EmbeddingSchemaRetriever
 
+_debug_retriever = EmbeddingSchemaRetriever()
 router = APIRouter(prefix="/schema", tags=["schema"])
-_debug_retriever = KeywordSchemaRetriever()
 
 class RetrievalDebugRequest(BaseModel):
     question: str

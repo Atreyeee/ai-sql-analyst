@@ -6,6 +6,8 @@ In Phase 5+, this will be replaced by the full NL-question pipeline.
 
 from fastapi import APIRouter
 from pydantic import BaseModel
+from app.database.connection import get_engine
+from app.database.inspector import get_schema_info
 
 from app.database.executor import execute_safe_sql, QueryExecutionResult
 
@@ -20,6 +22,7 @@ class RawSQLRequest(BaseModel):
 def run_raw_sql(request: RawSQLRequest) -> QueryExecutionResult:
     """
     Accepts a raw SQL string and runs it through validation + safe execution.
+    
 
     THIS ENDPOINT IS FOR DEVELOPMENT/TESTING ONLY. It exists so you can
     manually confirm the validator and executor behave correctly before
@@ -27,4 +30,5 @@ def run_raw_sql(request: RawSQLRequest) -> QueryExecutionResult:
     unprotected form once the real question-answering endpoint (Phase 5+)
     replaces it as the primary interface.
     """
-    return execute_safe_sql(request.sql)
+    full_schema = get_schema_info(get_engine())
+    return execute_safe_sql(request.sql, full_schema)

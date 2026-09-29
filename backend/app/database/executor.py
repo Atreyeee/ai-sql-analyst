@@ -15,7 +15,8 @@ Postgres itself will reject any write.
 
 from dataclasses import dataclass, field
 from typing import Any
-
+from app.database.schema_models import DatabaseSchema
+from app.validation.schema_validation import validate_schema_references
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -59,29 +60,36 @@ class QueryExecutionResult:
     error: str | None = None
 
 
-def execute_safe_sql(raw_sql: str) -> QueryExecutionResult:
+def execute_safe_sql(raw_sql: str, schema: DatabaseSchema) -> QueryExecutionResult:
     """
-    Validates and executes a SQL string, returning structured results
-    or a structured error. Never raises for "expected" failure modes
-    (invalid SQL, unsafe SQL, DB errors) — callers get a result object
-    either way. This matters because Phase 9 (error correction) needs
-    to inspect *why* a query failed, not just catch an exception.
+    Validates and executes a SQL string against the given schema,
+    returning structured results or a structured error.
+
+    Two independent validation layers run before execution:
+      1. validate_sql (Phase 4)         — security: statement type,
+         multi-statement, forbidden keywords, dangerous functions.
+      2. validate_schema_references (Phase 8) — correctness: every
+         referenced table/column actually exists in `schema`.
+
+    `schema` should be the same schema shown to the SQL generator —
+    typically the retrieved subset from Phase 7, so validation checks
+    the query against exactly what the LLM was told exists.
     """
     validation = validate_sql(raw_sql)
     if not validation.is_safe:
         return QueryExecutionResult(success=False, error=f"Rejected: {validation.reason}")
 
+    schema_check = validate_schema_references(raw_sql, schema)
+    if not schema_check.is_valid:
+        return QueryExecutionResult(success=False, error=f"Rejected: {schema_check.reason}")
+
     engine = get_readonly_engine()
 
     try:
         with engine.connect() as conn:
-            # Belt-and-suspenders: enforce timeout at the connection
-            # level too, even though the role already sets a default.
             conn.execute(text(f"SET statement_timeout = {STATEMENT_TIMEOUT_MS}"))
-
             result = conn.execute(text(raw_sql))
             columns = list(result.keys())
-
             fetched = result.fetchmany(MAX_ROWS + 1)
             truncated = len(fetched) > MAX_ROWS
             rows = [dict(zip(columns, row)) for row in fetched[:MAX_ROWS]]
@@ -95,6 +103,4 @@ def execute_safe_sql(raw_sql: str) -> QueryExecutionResult:
             )
 
     except SQLAlchemyError as e:
-        # We intentionally return the error message rather than raising.
-        # Phase 9 will parse this error to decide whether/how to retry.
         return QueryExecutionResult(success=False, error=str(e.__cause__ or e))

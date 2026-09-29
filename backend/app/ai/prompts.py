@@ -32,3 +32,30 @@ User question: "{question}"
 
 Generate the SQL query to answer this question, following all rules in the system instruction.
 """
+
+def build_correction_prompt(
+    question: str,
+    schema_text: str,
+    failed_sql: str,
+    error_message: str,
+) -> str:
+    """
+    Builds the user prompt for a SQL correction attempt. Includes the
+    ORIGINAL question (not just "fix this SQL") so the model stays
+    grounded in what it's actually trying to answer, not just in
+    making the error message go away.
+    """
+    return f"""Database schema:
+{schema_text}
+
+User question: "{question}"
+
+You previously generated this SQL, which failed:
+{failed_sql}
+
+The error was:
+{error_message}
+
+Generate a CORRECTED SQL query that answers the original question and
+fixes this error. Follow all rules in the system prompt.
+"""
