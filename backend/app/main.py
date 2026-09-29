@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from app.api import schema as schema_router
 from app.api import query as query_router
+from app.api import ask as ask_router
+
 app = FastAPI(
     title="AI SQL Analyst",
     description="Natural-language interface for querying a relational database.",
@@ -14,6 +16,7 @@ app = FastAPI(
 )
 app.include_router(schema_router.router)
 app.include_router(query_router.router)
+app.include_router(ask_router.router)
 class HealthResponse(BaseModel):
     """Response schema for the health check endpoint."""
     status: str
