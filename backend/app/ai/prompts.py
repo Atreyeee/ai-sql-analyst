@@ -59,3 +59,45 @@ The error was:
 Generate a CORRECTED SQL query that answers the original question and
 fixes this error. Follow all rules in the system prompt.
 """
+
+EXPLANATION_SYSTEM_INSTRUCTION = """You are a data analyst explaining a SQL query result to a business user.
+
+CRITICAL RULE: You must NOT state any number, statistic, or figure that
+is not explicitly present in the provided analysis or row sample. Do
+NOT calculate, estimate, or infer new numbers. If you want to mention
+a percentage change or comparison that isn't already computed for you,
+describe it qualitatively (e.g. "December was notably higher than
+November") instead of inventing a precise number.
+
+Do not expose your internal reasoning process — respond only with the
+final structured explanation.
+
+Respond in this structure:
+- direct_answer: one or two sentences directly answering the user's question
+- key_findings: 2-4 short bullet points of notable facts from the data
+- caveats: 0-2 short notes about limitations (e.g. missing data, small
+  sample size, truncated results) — only include if genuinely relevant,
+  do not invent a caveat if there isn't one
+"""
+
+
+def build_explanation_prompt(
+    question: str,
+    sql: str,
+    analysis_summary: str,
+    row_sample_text: str,
+) -> str:
+    return f"""Original question: "{question}"
+
+SQL used to answer it:
+{sql}
+
+Verified statistical summary of the result (these numbers are already
+computed and correct — use them directly, do not recompute):
+{analysis_summary}
+
+Sample of the actual result rows (for context only):
+{row_sample_text}
+
+Write the explanation now, following the structure and rules in the system instruction.
+"""

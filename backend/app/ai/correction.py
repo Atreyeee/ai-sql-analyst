@@ -13,16 +13,18 @@ particular LLM or database.
 """
 
 from dataclasses import dataclass, field
-
+from app.ai.llm_retry import call_gemini_with_retry
 from app.ai.generator_base import SQLGenerator
 from app.ai.pipeline_models import CorrectionAttempt, GeneratedSQL
-from app.ai.prompts import build_correction_prompt, SYSTEM_INSTRUCTION
+from app.ai.prompts import build_correction_prompt, SYSTEM_INSTRUCTION  
 from app.database.executor import QueryExecutionResult, execute_safe_sql
 from app.database.schema_models import DatabaseSchema
 from app.database.config import settings
 from google import genai
 from google.genai import types
-
+from app.ai.llm_generator import RESPONSE_SCHEMA, MODEL_NAME
+from app.database.inspector import schema_to_prompt_text
+import json
 MAX_CORRECTION_ATTEMPTS = 2  # total retries AFTER the initial attempt
 
 # Error substrings that indicate a security rejection (Phase 4).
@@ -71,24 +73,19 @@ def _regenerate_with_correction(
     is different (it includes the failed SQL + error), not just a
     different question.
     """
-    from app.ai.llm_generator import RESPONSE_SCHEMA, MODEL_NAME  # reuse schema/model constants
-    from app.database.inspector import schema_to_prompt_text
-    import json
 
     client = genai.Client(api_key=settings.gemini_api_key)
     schema_text = schema_to_prompt_text(schema)
     prompt = build_correction_prompt(question, schema_text, failed_sql, error_message)
 
-    response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_INSTRUCTION,
-            response_mime_type="application/json",
-            response_schema=RESPONSE_SCHEMA,
-            temperature=0.1,
-        ),
-    )
+    response = call_gemini_with_retry(
+    client=client,
+    model=MODEL_NAME,
+    prompt=prompt,
+    system_instruction=SYSTEM_INSTRUCTION,
+    response_schema=RESPONSE_SCHEMA,
+    temperature=0.2,
+)
     data = json.loads(response.text)
     return GeneratedSQL(
         sql=data["sql"],

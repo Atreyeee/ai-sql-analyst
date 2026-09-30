@@ -13,7 +13,7 @@ import time
 from google.genai.errors import ServerError
 from google import genai
 from google.genai import types
-
+from app.ai.llm_retry import call_gemini_with_retry
 from app.ai.generator_base import SQLGenerator
 from app.ai.pipeline_models import GeneratedSQL
 from app.ai.prompts import SYSTEM_INSTRUCTION, build_user_prompt
@@ -21,7 +21,7 @@ from app.database.config import settings
 from app.database.inspector import schema_to_prompt_text
 from app.database.schema_models import DatabaseSchema
 
-MODEL_NAME = "gemini-3-flash-preview"
+MODEL_NAME = "gemini-3.1-flash-lite"
 
 # JSON schema Gemini is constrained to return. Using response_schema
 # (rather than asking for JSON in plain text) means the API itself
@@ -52,16 +52,15 @@ class LLMSQLGenerator(SQLGenerator):
         schema_text = schema_to_prompt_text(schema)
         user_prompt = build_user_prompt(question, schema_text)
 
-        response = self._client.models.generate_content(
-            model=MODEL_NAME,
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
-                response_mime_type="application/json",
-                response_schema=RESPONSE_SCHEMA,
-                temperature=0.1,  # low temperature: we want consistent, literal SQL, not creative variation
-            ),
-        )
+        response = call_gemini_with_retry(
+            client=self._client,
+    model=MODEL_NAME,
+    prompt=user_prompt,
+    system_instruction=SYSTEM_INSTRUCTION,
+    response_schema=RESPONSE_SCHEMA,
+    temperature=0.1,
+)
+        
 
         data = json.loads(response.text)
 

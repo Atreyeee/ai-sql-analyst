@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     readonly_database_url: str = "postgresql://ai_sql_readonly:readonly_pw_change_me@localhost:5432/ai_sql_analyst"
     app_env: str = "development"
     gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.1-flash-lite" 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

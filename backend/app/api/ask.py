@@ -21,6 +21,13 @@ from app.database.config import settings
 from app.ai.keyword_retriever import KeywordSchemaRetriever
 from app.ai.retriever_base import SchemaRetriever
 from app.ai.correction import run_with_correction
+from app.analytics.result_analysis import analyze_result
+from app.analytics.visualization import decide_chart_type, build_chart_config
+from app.ai.explainer import generate_explanation
+from app.ai.memory import get_or_create_session, reformulate_question, Turn
+import time
+from app.database.history_repository import insert_history_record, QueryHistoryRecord
+
 router = APIRouter(tags=["ask"])
 
 # Single place where we decide which generator implementation is active.
@@ -34,6 +41,9 @@ _retriever: SchemaRetriever = EmbeddingSchemaRetriever()
 
 @router.post("/ask", response_model=AskResponse)
 def ask_question(request: AskRequest) -> AskResponse:
+    start_time = time.monotonic()
+    session_id, history = get_or_create_session(request.session_id)
+    standalone_question = reformulate_question(request.question, history)   
     full_schema = get_schema_info(get_engine())
     relevant_schema = _retriever.retrieve(request.question, full_schema)
 
@@ -41,18 +51,54 @@ def ask_question(request: AskRequest) -> AskResponse:
 
     generated = result.generated
     execution = result.execution
-
+    elapsed_ms = int((time.monotonic() - start_time) * 1000)
     if not execution.success:
-        return AskResponse(
+        insert_history_record(QueryHistoryRecord(
+            session_id=session_id,
             question=request.question,
+            standalone_question=standalone_question,
+            sql_generated=generated.sql,
+            execution_status="failed",
+            execution_time_ms=elapsed_ms,
+            row_count=None,
+            correction_attempt_count=len(result.attempts),
+            error_message=execution.error,
+        ))
+        return AskResponse(
+            session_id=session_id,
+            question=request.question,
+            standalone_question=standalone_question,
             sql=generated.sql,
             reasoning_summary=generated.reasoning_summary,
             error=execution.error,
             correction_attempts=result.attempts,
-        )
 
-    return AskResponse(
+        )
+    analysis = analyze_result(execution.columns, execution.rows)
+    chart_type = decide_chart_type(analysis)
+    chart = build_chart_config(chart_type, execution.columns, execution.rows, analysis) if chart_type else None
+    explanation = generate_explanation(standalone_question, generated.sql, execution.rows, analysis)
+    history.add(Turn(
         question=request.question,
+        standalone_question=standalone_question,
+        sql=generated.sql,
+        direct_answer=explanation.direct_answer,
+    ))
+    insert_history_record(QueryHistoryRecord(
+        session_id=session_id,
+        question=request.question,
+        standalone_question=standalone_question,
+        sql_generated=generated.sql,
+        execution_status="success",
+        execution_time_ms=elapsed_ms,
+        row_count=execution.row_count,
+        correction_attempt_count=len(result.attempts),
+        error_message=None,
+    ))
+    return AskResponse(
+        session_id=session_id,
+        question=request.question,
+        standalone_question=standalone_question,
         sql=generated.sql,
         reasoning_summary=generated.reasoning_summary,
         columns=execution.columns,
@@ -60,4 +106,7 @@ def ask_question(request: AskRequest) -> AskResponse:
         row_count=execution.row_count,
         truncated=execution.truncated,
         correction_attempts=result.attempts,
+        analysis=analysis,
+        chart=chart,
+        explanation=explanation,
     )
