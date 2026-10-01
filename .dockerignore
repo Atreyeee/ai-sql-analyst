@@ -1,0 +1,10 @@
+**/node_modules
+**/__pycache__
+**/*.pyc
+backend/venv
+frontend/.next
+frontend/node_modules
+.git
+.env
+*.env.local
+tests/evaluation/evaluation_report.json

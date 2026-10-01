@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ai_sql_analyst
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Scripts in /docker-entrypoint-initdb.d/ run ONCE, automatically,
+      # only on a brand-new (empty) data volume — this is Postgres's
+      # own official image convention, not something we built.
+      - ./data/ecommerce/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./data/ecommerce/query_history_schema.sql:/docker-entrypoint-initdb.d/02_query_history_schema.sql
+      - ./data/ecommerce/create_readonly_user.sql:/docker-entrypoint-initdb.d/03_readonly_user.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d ai_sql_analyst"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Note: "postgres" here is the SERVICE NAME above, not localhost.
+      # Docker Compose creates an internal network where each service
+      # is reachable by its service name as a hostname.
+      DATABASE_URL: postgresql://user:password@postgres:5432/ai_sql_analyst
+      READONLY_DATABASE_URL: postgresql://ai_sql_readonly:readonly_pw_change_me@postgres:5432/ai_sql_analyst
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.1-flash-lite}
+      APP_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Optional: uncomment for hot-reload during active development
+    # inside containers (slower than local venv dev, but keeps
+    # parity with the container environment). Omit in production.
+    # volumes:
+    #   - ./backend/app:/app/app
+    # command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+volumes:
+  pgdata:
