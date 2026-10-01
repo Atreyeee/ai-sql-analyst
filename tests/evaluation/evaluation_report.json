@@ -1,0 +1,194 @@
+{
+  "metrics": {
+    "total_questions": 12,
+    "sql_execution_success_rate": 0.75,
+    "result_correctness_rate": 0.75,
+    "correction_rate": 0.333,
+    "average_latency_ms": 7870.7,
+    "p95_latency_ms": 21817,
+    "by_category": {
+      "simple_select": {
+        "accuracy": 1.0,
+        "total": 1
+      },
+      "filtering": {
+        "accuracy": 1.0,
+        "total": 1
+      },
+      "aggregation": {
+        "accuracy": 1.0,
+        "total": 1
+      },
+      "group_by": {
+        "accuracy": 1.0,
+        "total": 1
+      },
+      "joins": {
+        "accuracy": 1.0,
+        "total": 1
+      },
+      "subqueries": {
+        "accuracy": 0.0,
+        "total": 1
+      },
+      "ctes": {
+        "accuracy": 0.0,
+        "total": 1
+      },
+      "window_functions": {
+        "accuracy": 0.0,
+        "total": 1
+      },
+      "date_operations": {
+        "accuracy": 1.0,
+        "total": 1
+      },
+      "ranking": {
+        "accuracy": 1.0,
+        "total": 1
+      },
+      "multi_condition": {
+        "accuracy": 1.0,
+        "total": 1
+      },
+      "edge_case": {
+        "accuracy": 1.0,
+        "total": 1
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "simple_select_01",
+      "category": "simple_select",
+      "question": "List the first 5 products by name.",
+      "execution_success": true,
+      "result_correct": true,
+      "correction_attempts": 0,
+      "latency_ms": 3173,
+      "error": null,
+      "check_failures": []
+    },
+    {
+      "id": "filter_01",
+      "category": "filtering",
+      "question": "How many orders have status 'cancelled'?",
+      "execution_success": true,
+      "result_correct": true,
+      "correction_attempts": 0,
+      "latency_ms": 3191,
+      "error": null,
+      "check_failures": []
+    },
+    {
+      "id": "aggregation_01",
+      "category": "aggregation",
+      "question": "What is the total revenue from all successful payments?",
+      "execution_success": true,
+      "result_correct": true,
+      "correction_attempts": 0,
+      "latency_ms": 5060,
+      "error": null,
+      "check_failures": []
+    },
+    {
+      "id": "groupby_01",
+      "category": "group_by",
+      "question": "How many orders are in each status?",
+      "execution_success": true,
+      "result_correct": true,
+      "correction_attempts": 0,
+      "latency_ms": 3415,
+      "error": null,
+      "check_failures": []
+    },
+    {
+      "id": "join_01",
+      "category": "joins",
+      "question": "What is the total revenue by product category?",
+      "execution_success": true,
+      "result_correct": true,
+      "correction_attempts": 0,
+      "latency_ms": 2488,
+      "error": null,
+      "check_failures": []
+    },
+    {
+      "id": "subquery_01",
+      "category": "subqueries",
+      "question": "Which customers have spent more than the average customer spend?",
+      "execution_success": false,
+      "result_correct": false,
+      "correction_attempts": 2,
+      "latency_ms": 18783,
+      "error": "Rejected: Query references unknown table(s): customer_totals",
+      "check_failures": []
+    },
+    {
+      "id": "cte_01",
+      "category": "ctes",
+      "question": "Using a CTE, find total revenue per month, then show only months above the overall average.",
+      "execution_success": false,
+      "result_correct": false,
+      "correction_attempts": 2,
+      "latency_ms": 13319,
+      "error": "Rejected: Query references unknown table(s): monthly_revenue, overall_avg",
+      "check_failures": []
+    },
+    {
+      "id": "window_01",
+      "category": "window_functions",
+      "question": "Rank products by total revenue, showing their rank alongside the revenue.",
+      "execution_success": false,
+      "result_correct": false,
+      "correction_attempts": 2,
+      "latency_ms": 21817,
+      "error": "Rejected: Query references unknown column(s): total_revenue",
+      "check_failures": []
+    },
+    {
+      "id": "date_01",
+      "category": "date_operations",
+      "question": "How many orders were placed in March 2024?",
+      "execution_success": true,
+      "result_correct": true,
+      "correction_attempts": 0,
+      "latency_ms": 3919,
+      "error": null,
+      "check_failures": []
+    },
+    {
+      "id": "ranking_01",
+      "category": "ranking",
+      "question": "What are the top 3 customers by total amount spent?",
+      "execution_success": true,
+      "result_correct": true,
+      "correction_attempts": 1,
+      "latency_ms": 5652,
+      "error": null,
+      "check_failures": []
+    },
+    {
+      "id": "multi_condition_01",
+      "category": "multi_condition",
+      "question": "How many delivered orders from customers in Mumbai had a total above 5000?",
+      "execution_success": true,
+      "result_correct": true,
+      "correction_attempts": 0,
+      "latency_ms": 2309,
+      "error": null,
+      "check_failures": []
+    },
+    {
+      "id": "empty_result_01",
+      "category": "edge_case",
+      "question": "How many orders were placed in the year 1999?",
+      "execution_success": true,
+      "result_correct": true,
+      "correction_attempts": 0,
+      "latency_ms": 11322,
+      "error": null,
+      "check_failures": []
+    }
+  ]
+}

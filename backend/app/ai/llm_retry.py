@@ -13,6 +13,8 @@ import time
 from google import genai
 from google.genai import types
 from google.genai.errors import ServerError
+from app.observability.logger import log_event
+
 
 MAX_RETRY_ATTEMPTS = 3
 
@@ -24,6 +26,7 @@ def call_gemini_with_retry(
     system_instruction: str,
     response_schema: dict,
     temperature: float,
+    request_id: str = "unknown",
 ):
     """
     Calls Gemini's generate_content with structured output, retrying
@@ -33,18 +36,29 @@ def call_gemini_with_retry(
     last_error: Exception | None = None
     for attempt in range(MAX_RETRY_ATTEMPTS):
         try:
-            return client.models.generate_content(
+            response = client.models.generate_content(
                 model=model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
-                    response_mime_type="application/json",
+                    response_mime_type="application/json" if response_schema else None,
                     response_schema=response_schema,
                     temperature=temperature,
                 ),
             )
+            usage = getattr(response, "usage_metadata", None)
+            log_event(
+                "llm_call",
+                request_id,
+                model=model,
+                attempt=attempt + 1,
+                prompt_tokens=getattr(usage, "prompt_token_count", None),
+                completion_tokens=getattr(usage, "candidates_token_count", None),
+            )
+            return response
         except ServerError as e:
             last_error = e
+            log_event("llm_call_retry", request_id, model=model, attempt=attempt + 1, error=str(e))
             if attempt < MAX_RETRY_ATTEMPTS - 1:
                 time.sleep(2 ** attempt)
     raise last_error

@@ -1,0 +1,157 @@
+[
+    {
+        "id": "simple_select_01",
+        "category": "simple_select",
+        "question": "List the first 5 products by name.",
+        "expected_checks": [
+            {
+                "type": "row_count_between",
+                "min": 1,
+                "max": 5
+            }
+        ]
+    },
+    {
+        "id": "filter_01",
+        "category": "filtering",
+        "question": "How many orders have status 'cancelled'?",
+        "expected_checks": [
+            {
+                "type": "row_count_equals",
+                "value": 1
+            },
+            {
+                "type": "column_exists",
+                "column": "count"
+            }
+        ]
+    },
+    {
+        "id": "aggregation_01",
+        "category": "aggregation",
+        "question": "What is the total revenue from all successful payments?",
+        "expected_checks": [
+            {
+                "type": "row_count_equals",
+                "value": 1
+            },
+            {
+                "type": "numeric_column_positive",
+                "column_hint": "revenue|sum|total"
+            }
+        ]
+    },
+    {
+        "id": "groupby_01",
+        "category": "group_by",
+        "question": "How many orders are in each status?",
+        "expected_checks": [
+            {
+                "type": "row_count_between",
+                "min": 4,
+                "max": 6
+            },
+            {
+                "type": "column_exists",
+                "column": "status"
+            }
+        ]
+    },
+    {
+        "id": "join_01",
+        "category": "joins",
+        "question": "What is the total revenue by product category?",
+        "expected_checks": [
+            {
+                "type": "row_count_between",
+                "min": 6,
+                "max": 10
+            },
+            {
+                "type": "column_exists",
+                "column_hint": "categor"
+            }
+        ]
+    },
+    {
+        "id": "subquery_01",
+        "category": "subqueries",
+        "question": "Which customers have spent more than the average customer spend?",
+        "expected_checks": [
+            {
+                "type": "row_count_between",
+                "min": 1,
+                "max": 499
+            }
+        ]
+    },
+    {
+        "id": "cte_01",
+        "category": "ctes",
+        "question": "Using a CTE, find total revenue per month, then show only months above the overall average.",
+        "expected_checks": [
+            {
+                "type": "row_count_between",
+                "min": 1,
+                "max": 35
+            }
+        ]
+    },
+    {
+        "id": "window_01",
+        "category": "window_functions",
+        "question": "Rank products by total revenue, showing their rank alongside the revenue.",
+        "expected_checks": [
+            {
+                "type": "column_exists_hint",
+                "hints": [
+                    "rank"
+                ]
+            }
+        ]
+    },
+    {
+        "id": "date_01",
+        "category": "date_operations",
+        "question": "How many orders were placed in March 2024?",
+        "expected_checks": [
+            {
+                "type": "row_count_equals",
+                "value": 1
+            }
+        ]
+    },
+    {
+        "id": "ranking_01",
+        "category": "ranking",
+        "question": "What are the top 3 customers by total amount spent?",
+        "expected_checks": [
+            {
+                "type": "row_count_equals",
+                "value": 3
+            }
+        ]
+    },
+    {
+        "id": "multi_condition_01",
+        "category": "multi_condition",
+        "question": "How many delivered orders from customers in Mumbai had a total above 5000?",
+        "expected_checks": [
+            {
+                "type": "row_count_equals",
+                "value": 1
+            }
+        ]
+    },
+    {
+        "id": "empty_result_01",
+        "category": "edge_case",
+        "question": "How many orders were placed in the year 1999?",
+        "expected_checks": [
+            {
+                "type": "row_count_equals",
+                "value": 1
+            }
+        ]
+    }
+]

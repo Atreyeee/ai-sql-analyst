@@ -10,21 +10,27 @@ SQL or execute it — it depends on the same SQLGenerator interface
 (Phase 5) and execute_safe_sql (Phase 4/8), calling them as building
 blocks. This keeps the retry logic testable independently of any
 particular LLM or database.
+
+request_id is threaded through to every LLM call and execution inside
+this loop (Phase 16) so every attempt — including correction retries —
+shares the same trace ID as the rest of the /ask request.
 """
 
-from dataclasses import dataclass, field
-from app.ai.llm_retry import call_gemini_with_retry
-from app.ai.generator_base import SQLGenerator
-from app.ai.pipeline_models import CorrectionAttempt, GeneratedSQL
-from app.ai.prompts import build_correction_prompt, SYSTEM_INSTRUCTION  
-from app.database.executor import QueryExecutionResult, execute_safe_sql
-from app.database.schema_models import DatabaseSchema
-from app.database.config import settings
-from google import genai
-from google.genai import types
-from app.ai.llm_generator import RESPONSE_SCHEMA, MODEL_NAME
-from app.database.inspector import schema_to_prompt_text
 import json
+
+from dataclasses import dataclass, field
+
+from google import genai
+
+from app.ai.generator_base import SQLGenerator
+from app.ai.llm_retry import call_gemini_with_retry
+from app.ai.pipeline_models import CorrectionAttempt, GeneratedSQL
+from app.ai.prompts import SYSTEM_INSTRUCTION, build_correction_prompt
+from app.database.config import settings
+from app.database.executor import QueryExecutionResult, execute_safe_sql
+from app.database.inspector import schema_to_prompt_text
+from app.database.schema_models import DatabaseSchema
+
 MAX_CORRECTION_ATTEMPTS = 2  # total retries AFTER the initial attempt
 
 # Error substrings that indicate a security rejection (Phase 4).
@@ -53,10 +59,7 @@ def _is_retryable(error: str) -> bool:
     again with the same freedom" — the system prompt already forbids
     it, and blindly retrying wastes an attempt on a failure mode this
     loop isn't designed to negotiate with. Schema-reference errors
-    (Phase 8) and real database execution errors ARE retryable: they
-    usually stem from a fixable mistake (wrong column name, bad
-    syntax, type mismatch) that showing the model the actual error
-    can resolve.
+    (Phase 8) and real database execution errors ARE retryable.
     """
     return not any(marker in error for marker in _SECURITY_REJECTION_MARKERS)
 
@@ -66,6 +69,7 @@ def _regenerate_with_correction(
     schema: DatabaseSchema,
     failed_sql: str,
     error_message: str,
+    request_id: str,
 ) -> GeneratedSQL:
     """
     A second, correction-specific path to the LLM. Deliberately
@@ -73,19 +77,21 @@ def _regenerate_with_correction(
     is different (it includes the failed SQL + error), not just a
     different question.
     """
+    from app.ai.llm_generator import RESPONSE_SCHEMA  # reuse the same response schema
 
     client = genai.Client(api_key=settings.gemini_api_key)
     schema_text = schema_to_prompt_text(schema)
     prompt = build_correction_prompt(question, schema_text, failed_sql, error_message)
 
     response = call_gemini_with_retry(
-    client=client,
-    model=MODEL_NAME,
-    prompt=prompt,
-    system_instruction=SYSTEM_INSTRUCTION,
-    response_schema=RESPONSE_SCHEMA,
-    temperature=0.2,
-)
+        client=client,
+        model=settings.gemini_model,
+        prompt=prompt,
+        system_instruction=SYSTEM_INSTRUCTION,
+        response_schema=RESPONSE_SCHEMA,
+        temperature=0.1,
+        request_id=request_id,
+    )
     data = json.loads(response.text)
     return GeneratedSQL(
         sql=data["sql"],
@@ -98,14 +104,17 @@ def run_with_correction(
     question: str,
     schema: DatabaseSchema,
     generator: SQLGenerator,
+    request_id: str = "unknown",
 ) -> CorrectionLoopResult:
     """
     Runs generate -> validate/execute, retrying with error-informed
     correction up to MAX_CORRECTION_ATTEMPTS times if a retryable
-    failure occurs.
+    failure occurs. request_id is passed through to every execution
+    and LLM call so the full correction loop is traceable as part of
+    the parent request (Phase 16).
     """
     generated = generator.generate(question, schema)
-    execution = execute_safe_sql(generated.sql, schema)
+    execution = execute_safe_sql(generated.sql, schema, request_id=request_id)
     attempts: list[CorrectionAttempt] = []
 
     attempt_number = 0
@@ -128,7 +137,8 @@ def run_with_correction(
             schema=schema,
             failed_sql=generated.sql,
             error_message=execution.error or "Unknown error",
+            request_id=request_id,
         )
-        execution = execute_safe_sql(generated.sql, schema)
+        execution = execute_safe_sql(generated.sql, schema, request_id=request_id)
 
     return CorrectionLoopResult(generated=generated, execution=execution, attempts=attempts)

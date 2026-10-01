@@ -12,7 +12,7 @@ LLM-generated or user-influenced SQL. It combines:
 Even if validation somehow has a gap, the read-only role means
 Postgres itself will reject any write.
 """
-
+from app.observability.logger import log_event
 from dataclasses import dataclass, field
 from typing import Any
 from app.database.schema_models import DatabaseSchema
@@ -20,9 +20,10 @@ from app.validation.schema_validation import validate_schema_references
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
-
+import time
 from app.database.config import settings
 from app.validation.sql_safety import validate_sql
+
 
 MAX_ROWS = 1000
 STATEMENT_TIMEOUT_MS = 5000  # also enforced at the DB role level (Phase 4 step 5)
@@ -60,7 +61,7 @@ class QueryExecutionResult:
     error: str | None = None
 
 
-def execute_safe_sql(raw_sql: str, schema: DatabaseSchema) -> QueryExecutionResult:
+def execute_safe_sql(raw_sql: str, schema: DatabaseSchema,request_id:str="unknown") -> QueryExecutionResult:
     """
     Validates and executes a SQL string against the given schema,
     returning structured results or a structured error.
@@ -84,7 +85,7 @@ def execute_safe_sql(raw_sql: str, schema: DatabaseSchema) -> QueryExecutionResu
         return QueryExecutionResult(success=False, error=f"Rejected: {schema_check.reason}")
 
     engine = get_readonly_engine()
-
+    start = time.monotonic()
     try:
         with engine.connect() as conn:
             conn.execute(text(f"SET statement_timeout = {STATEMENT_TIMEOUT_MS}"))
@@ -93,6 +94,8 @@ def execute_safe_sql(raw_sql: str, schema: DatabaseSchema) -> QueryExecutionResu
             fetched = result.fetchmany(MAX_ROWS + 1)
             truncated = len(fetched) > MAX_ROWS
             rows = [dict(zip(columns, row)) for row in fetched[:MAX_ROWS]]
+            duration_ms = int((time.monotonic() - start) * 1000)
+            log_event("sql_execution", request_id, duration_ms=duration_ms, row_count=len(rows), success=True)
 
             return QueryExecutionResult(
                 success=True,
@@ -103,4 +106,6 @@ def execute_safe_sql(raw_sql: str, schema: DatabaseSchema) -> QueryExecutionResu
             )
 
     except SQLAlchemyError as e:
+        duration_ms = int((time.monotonic() - start) * 1000)
+        log_event("sql_execution", request_id, duration_ms=duration_ms, success=False, error=str(e.__cause__ or e))
         return QueryExecutionResult(success=False, error=str(e.__cause__ or e))

@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: auto; /* Lenis owns smooth scrolling; native CSS smoothing would fight it */
+}
+
+body {
+  background-color: #0b0d12;
+  color: #f3f1ea;
+  font-feature-settings: "ss01" on, "cv11" on;
+}
+
+::selection {
+  background-color: #e2a23b;
+  color: #0b0d12;
+}
+
+/* Visible keyboard focus everywhere — accessibility floor, not optional */
+:focus-visible {
+  outline: 2px solid #e2a23b;
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* Respect reduced-motion system preference across the app */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Thin, editorial scrollbar for code / table overflow regions */
+.hairline-scroll::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.hairline-scroll::-webkit-scrollbar-thumb {
+  background-color: #242833;
+  border-radius: 999px;
+}
+.hairline-scroll::-webkit-scrollbar-track {
+  background-color: transparent;
+}
